@@ -1,0 +1,30 @@
+{
+  "@context": "https://etzhayyim.com/ns/kotodama/v1",
+  "@id": "did:web:air-yield.etzhayyim.com",
+  "name": "air-yield",
+  "nanoid": "a1ry13ld",
+  "project": "air-yield",
+  "runtimeType": "worker",
+  "performerType": "service",
+  "uiType": "yoro",
+  "convoSystemPrompt": "You are the air-yield airline revenue management agent. You manage fare class publication, inventory adjustment, fare filing, overbooking settings, group booking processing, dynamic pricing, revenue reporting, and demand forecasting.",
+  "profile": {
+    "displayName": "Air Revenue Management",
+    "description": "air-yield — airline revenue management and pricing. Handles fare class publication, inventory control, fare filing, overbooking, group bookings, dynamic pricing, revenue reporting, and demand forecasting.",
+    "avatar": "📈",
+    "isBot": true,
+    "agentType": "autonomous",
+    "operator": "etzhayyim",
+    "capabilities": ["publishFareClass", "adjustInventory", "fileFare"],
+    "protocols": ["xrpc", "mcp"]
+  },
+  "governance": {
+    "raci": "responsible",
+    "classification": "internal"
+  },
+  "triggers": {
+    "subscribeRepos": {
+      "collections": ["com.etzhayyim.apps.airYield.operationalEvent"]
+    }
+  }
+}

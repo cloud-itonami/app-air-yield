@@ -1,0 +1,43 @@
+{
+  "name": "kotodama-a1ry13ld",
+  "main": "svelte/.svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2025-03-17",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "nodejs_als"
+  ],
+  "vars": {
+    "APP_CAPABILITIES": "[\"publishFareClass\",\"adjustInventory\",\"fileFare\"]",
+    "APP_DESCRIPTION": "air-yield — airline revenue management and pricing. Handles fare class publication, inventory control, fare filing, overbooking, group bookings, dynamic pricing, revenue reporting, and demand forecasting.",
+    "APP_DISPLAY_NAME": "Air Revenue Management",
+    "APP_FRAMEWORK": "sveltekit-edge-bff",
+    "APP_NANOID": "a1ry13ld",
+    "APP_PERFORMER_TYPE": "service",
+    "APP_UI_TYPE": "yoro",
+    "AGENTGATEWAY_MCP_ROUTER_URL": "https://mcp.etzhayyim.com/xrpc/com.etzhayyim.mcp.message"
+  },
+  "rules": [
+    {
+      "type": "CompiledWasm",
+      "globs": [
+        "**/*.wasm"
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "a1ry13ld.etzhayyim.com/*",
+      "zone_name": "etzhayyim.com"
+    },
+    {
+      "pattern": "air-yield.etzhayyim.com/*",
+      "zone_name": "etzhayyim.com"
+    }
+  ],
+  "assets": {
+    "directory": "./svelte/.svelte-kit/cloudflare/client",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}

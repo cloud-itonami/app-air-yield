@@ -4,11 +4,11 @@
   "project": "etzhayyim-project-air-yield",
   "name": "etzhayyim-project-air-yield",
   "kind": "cloudflare surface",
-  "routeCount": 0,
-  "routes": [],
-  "vars": [],
+  "routeCount": 2,
+  "routes": ["a1ry13ld.etzhayyim.com/*", "air-yield.etzhayyim.com/*"],
+  "vars": ["AGENTGATEWAY_MCP_ROUTER_URL", "APP_CAPABILITIES", "APP_DESCRIPTION", "APP_DISPLAY_NAME", "APP_FRAMEWORK", "APP_NANOID", "APP_PERFORMER_TYPE", "APP_UI_TYPE"],
   "xrpc": true,
-  "relativePath": "60-apps/etzhayyim-project-air-yield/svelte/src/routes/+page.svelte"
+  "relativePath": "svelte/src/routes/+page.svelte"
 };
 </script>
 

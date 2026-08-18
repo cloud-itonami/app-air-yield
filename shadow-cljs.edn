@@ -1,0 +1,27 @@
+;; air-yield appview の Worker。`:esm`、先例は cloud-itonami-marketplace-listing
+;; と cloud-itonami/app-ongakuka。
+;;
+;; wrangler.jsonc の main は dist/worker.js を指し、それは src/ のソースから
+;; コンパイルされた **この** bundle である。それが docs/adr/0001 の移行の要点で
+;; ある —— 移行前の main は SvelteKit のビルド出力を指し、読み手が開く
+;; TypeScript はどの bundle にも入っていなかった。
+;;
+;; :warnings-as-errors は飾りではない。shadow は未宣言・改名された var を
+;; **WARNING** として扱うので、`shadow-cljs release worker` は exit 0 のまま
+;; 最初のリクエストで `Cannot read properties of undefined` を投げる bundle を
+;; 書いていた。つまり「ビルドが通った」は検査ではなかった —— **落ちようが
+;; なかった**。
+{:deps {:aliases [:cljs]}
+ :builds
+ {:worker
+  {:target :esm
+   :output-dir "dist"
+   :modules {:worker {:exports {default airyield.worker/handler}}}
+   ;; NOTE このキーは :compiler-options の下であって :build-options ではない ——
+   ;; shadow が読むのは [:compiler-options :warnings-as-errors]
+   ;; (shadow/build/compiler.clj の `should-warning-throw?`)。:build-options に
+   ;; 置くと **黙って無視される**。それはこのオプションが防ごうとしている失敗
+   ;; そのもの、つまり「落ちようのない修正」である。
+   :compiler-options {:output-feature-set :es2020
+                      :infer-externs :auto
+                      :warnings-as-errors true}}}}

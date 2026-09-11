@@ -104,7 +104,7 @@ ADR-2606290000 の判断で、kotoba の ingress capability が `:native-aot` /
 - ページ描画 → design-quality score **100.00 / 100**（gate 95）。
   10 軸の既定に加え `--extra-axes` で **12 軸すべて 100.00** も確認した。
 - `scripts/verify-docs-claims.cljs`: 全 claim PASS、exit 0
-- `shadow-cljs release worker` が guard 経由で通り `dist/worker.js` を出した
+- `amu compile --target wasm32-browser worker` が guard 経由で通り `dist/worker.js` を出した
 - `scripts/smoke-worker.cljs` が **その bundle を import して** 16 項目確認
 - `wrangler dev --local`（workerd 実機）で全 route を叩き、
   `compatibility_flags` 無しで動くことを確かめてから flags を撤去した

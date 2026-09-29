@@ -27,7 +27,7 @@
    0 のままだった**。隣の `wrangler.jsonc` と同期する仕組みが無い。
 3. **`APP_FRAMEWORK` は `sveltekit-edge-bff` を名乗っていた。**
 
-この workspace の正本言語は cljs と kotoba である（superproject CLAUDE.md の
+この workspace の正本言語は cljs と kotoba である（superproject AGENTS.md の
 runtime 順序: kotoba wasm > clojurewasm > ClojureScript > nbb）。TypeScript は
 そこに無い。
 

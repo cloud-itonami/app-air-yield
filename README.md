@@ -61,7 +61,7 @@ ingress capability が qualify した時に **最初に `.kotoba` へ移る部�
 どの bundle にも入っていなかった。移行後の Worker は `/health` を **持つ**。
 純ローカルな handler で上流も binding も要らない。
 
-## いま在るもの — 27 ファイル
+## いま在るもの — 28 ファイル
 
 | 面 | ファイル |
 |---|---|
@@ -193,6 +193,8 @@ deploy 先も中継先も、いま存在しない（`etzhayyim.com` 自体は解
    （移行前から記録されていた所見。ここでは変えていない）。
 
 ## Static edition (IPFS)
+
+Published name: `ipns://k51qzi5uqu5dhn9r5k9onthby8k0tm8pvagvfworonagyf9cpof8i7h3bo3i81` (recorded with the site CID in `kotoba.app.edn`). Public HTTPS entrance: `https://k51qzi5uqu5dhn9r5k9onthby8k0tm8pvagvfworonagyf9cpof8i7h3bo3i81.ipns.220-146-170-114.sslip.io/`.
 
 `GET /` のページは要求ごとに変わらないので、Worker 無しの **静的版** として IPFS に
 置ける（`ipns://k51…` と `k51….ipns` の gateway origin から配る。正本はその IPNS 名で、

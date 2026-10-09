@@ -32,6 +32,32 @@
            (:route/doc r)])
         routes))
 
+(defn- page-routes
+  "静的版に載せる route。`:route/kind :page` の行だけ。
+
+  IPFS に置くのはこのページ 1 枚で、`/health` も `/xrpc/:nsid` も答える
+  プロセスが居ない。表は Worker と同じ route 表から**絞って**描く —— 静的版用に
+  別の表を手で持つと、それは移行が消しにきた『隣を知らない literal』の再来になる。"
+  [routes]
+  (filterv #(= :page (:route/kind %)) routes))
+
+(defn- intro-section
+  "冒頭の説明。`static?` で最後の 1 文だけを替える。
+
+  Worker 版は自分を『XRPC を中継するだけの edge』と言えるが、静的版には Worker
+  も中継も無い。同じ文を出すと、無いものを在ると言うことになる。"
+  [static?]
+  (dds/section
+   {}
+   (dds/heading 1 "Air Revenue Management — air-yield")
+   [:p {:class "ay-lede"}
+    "航空座席の収益管理（revenue management）を担う appview の公開面。"
+    "運賃クラスの公開・在庫調整・運賃申請・オーバーブッキング・団体予約・"
+    "動的価格・収益レポート・需要予測を扱うが、**その判断そのものはここには無い** —— "
+    (if static?
+      "このページはその説明だけを載せた静的版である。"
+      "この面は XRPC を上流の MCP router へ中継するだけの edge である。")]))
+
 (defn body
   "opts:
    :routes    airyield.route/routes（この Worker が実際に答えるもの）
@@ -40,14 +66,7 @@
    :built-at  bundle のビルド時刻（不明なら nil）"
   [{:keys [routes vars mcp-url built-at]}]
   (dds/container
-   (dds/section
-    {}
-    (dds/heading 1 "Air Revenue Management — air-yield")
-    [:p {:class "ay-lede"}
-     "航空座席の収益管理（revenue management）を担う appview の公開面。"
-     "運賃クラスの公開・在庫調整・運賃申請・オーバーブッキング・団体予約・"
-     "動的価格・収益レポート・需要予測を扱うが、**その判断そのものはここには無い** —— "
-     "この面は XRPC を上流の MCP router へ中継するだけの edge である。"])
+   (intro-section false)
 
    (dds/section
     {:title "この面が答えるもの"}
@@ -89,13 +108,50 @@
     (when built-at
       [:p {:class "ay-note"} "bundle build: " built-at]))))
 
+(defn static-body
+  "IPFS に公開する静的版の本文。opts は `body` と同じ形で、使うのは `:routes` だけ。
+
+  **静的版は Worker が答えるものを名乗らない。** `/health`・`/xrpc/:nsid`・
+  中継先 URL・env のキー名は、どれも Worker が動いていて初めて在るもので、
+  内容アドレスで配られる 1 枚の HTML には無い。Worker 版の『実行時の設定』と
+  『現在地』（deploy される bundle の話）は出さず、代わりにこの版が何であるか
+  —— どこが正本で、何が無いか —— を述べる。`:vars` と `:mcp-url` が渡されても
+  読まない（呼び出し側が Worker と同じ入力を渡しても漏れない）。"
+  [{:keys [routes]}]
+  (dds/container
+   (intro-section true)
+
+   (dds/section
+    {:title "この版について"}
+    [:p {:class "ay-lede"}
+     "これは IPFS に公開した、内容アドレスの静的版である。正規のアドレスは IPNS 名（"
+     [:span {:class "ay-mono"} "ipns://k51…"]
+     "）で、DNS の名前はその別名にすぎない。"]
+    [:p {:class "ay-note"}
+     "XRPC の中継は Worker 版にだけある。この版はページ 1 枚で、実行時の設定も"
+     "中継先も持たない。"])
+
+   (dds/section
+    {:title "この版が答えるもの"}
+    (dds/table {:caption "公開ルート"
+                :headers ["METHOD" "PATH" "何をするか"]
+                :rows (route-rows (page-routes routes))})
+    [:p {:class "ay-note"}
+     "この表は Worker の route 表から、ページの行だけを描いている。"])))
+
 (defn render
-  "完全な HTML 文書。`css` は呼び出し側が渡す（ライブラリは I/O を持たない）。"
-  [{:keys [css] :as opts}]
+  "完全な HTML 文書。`css` は呼び出し側が渡す（ライブラリは I/O を持たない）。
+
+  `:static? true` で IPFS 用の静的版（`static-body`）を描く。description も
+  中継を名乗らない文に替える。無ければ Worker の `GET /` と 1 バイトも違わない
+  —— Worker はこの key を渡さない。"
+  [{:keys [css static?] :as opts}]
   (page/->page
    {:title "Air Revenue Management — air-yield"
-    :description "航空座席の収益管理を担う appview の公開面。XRPC を MCP router へ中継する。"
+    :description (if static?
+                   "航空座席の収益管理を担う appview の説明。IPFS に公開した静的版。"
+                   "航空座席の収益管理を担う appview の公開面。XRPC を MCP router へ中継する。")
     :lang "ja"
     :css css
     :app-css (str tokens/bridge-css "\n" app-css)}
-   (body opts)))
+   (if static? (static-body opts) (body opts))))

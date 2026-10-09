@@ -81,3 +81,40 @@
       (is (= "application/json" (get h "content-type")))
       (is (= "com.a.b" (get h "x-etzhayyim-xrpc-method")))
       (is (= "cljs-worker" (get h "x-etzhayyim-bff"))))))
+
+(def ^:private worker-env-keys
+  "wrangler.jsonc の vars のキー名。値ではなく名前が漏れないことを見るための印。"
+  [:AGENTGATEWAY_MCP_ROUTER_URL :APP_CAPABILITIES :APP_DESCRIPTION :APP_DISPLAY_NAME
+   :APP_FRAMEWORK :APP_NANOID :APP_PERFORMER_TYPE :APP_UI_TYPE])
+
+(deftest static-edition-names-only-what-exists-on-ipfs
+  (testing "IPFS の静的版には Worker が居ない。Worker と同じ入力を渡しても、無いものを名乗らない"
+    (let [relay "https://mcp.example/x"
+          html (view/render {:css "/*x*/" :routes route/routes :static? true
+                             :vars worker-env-keys :mcp-url relay})]
+      (is (not (str/includes? html "/xrpc")) "/xrpc は Worker 版にしか無い")
+      (is (not (str/includes? html "/health")) "/health は Worker 版にしか無い")
+      (is (not (str/includes? html relay)) "中継先 URL が出ている")
+      (is (not (str/includes? html (route/mcp-router-url {}))) "既定の中継先が出ている")
+      (is (not (str/includes? html "MCP router へ中継する")) "description が中継を名乗っている")
+      (doseq [k worker-env-keys]
+        (is (not (str/includes? html (name k))) (str (name k) " が静的版に出ている")))
+      (testing "代わりに、この版が何かを述べる"
+        (is (str/includes? html "IPFS"))
+        (is (str/includes? html "ipns://"))
+        (is (str/includes? html "Worker 版にだけある")))
+      (testing "route 表は :page の行だけ"
+        (is (str/includes? html "この appview の説明ページ"))))))
+
+(deftest worker-page-is-untouched-by-the-static-mode
+  (testing ":static? が無い（Worker が渡す形）なら、従来どおり Worker の面を名乗る"
+    (let [opts {:css "/*x*/" :routes route/routes
+                :vars worker-env-keys :mcp-url "https://mcp.example/x"}
+          html (view/render opts)]
+      (is (= html (view/render (assoc opts :static? false))))
+      (is (str/includes? html "/health"))
+      (is (str/includes? html "/xrpc/:nsid"))
+      (is (str/includes? html "https://mcp.example/x"))
+      (is (str/includes? html "APP_NANOID"))
+      (is (str/includes? html "MCP router へ中継する"))
+      (is (not (str/includes? html "ipns://"))))))

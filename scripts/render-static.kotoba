@@ -1,0 +1,123 @@
+#!/usr/bin/env kbb
+;; render-static — Worker の `GET /` を、IPFS に置く静的版として 1 枚の HTML に描く。
+;;
+;; 静的版は ipns://{k51…}（と {k51…}.ipns の gateway origin）から配られ、
+;; **Worker が居ない**。だから `/health` も `/xrpc/:nsid` も中継先も無く、view は
+;; `:static? true` でそれらを名乗らないページを描く（airyield.view/static-body）。
+;; Worker は deploy されたまま並走しており、Worker 版のページはこのスクリプトと
+;; 無関係に 1 バイトも変わらない。
+;;
+;; 入力は Worker の page-response と同じものを渡す: route 表は airyield.route/routes、
+;; env のキー名と中継先は **wrangler.jsonc の vars から** ビルド時に読む（手で
+;; 写さない —— 写した値は wrangler.jsonc が変わっても追随しない。docs/adr/0001 が
+;; 記録した欠陥の形そのもの）。静的版はそれらを表示しないが、表示しないことは
+;; 渡したうえで確かめる: 書く前に、出力に `/xrpc`・`/health`・中継先 URL・var の
+;; キー名のどれかが出ていれば exit 1 で拒否し、ファイルを書かない。
+;;
+;; 出力は決定的である（時刻もランダムも入れない。`:built-at` は nil）。同じ tree と
+;; 同じ DADS checkout からは同じ sha256 が出る。
+;;
+;; src/ の名前空間は `.kotoba` だが、kbb の sci engine が require で探す拡張子は
+;; `.cljs .cljc .clj .cljk` で `.kotoba` を探さない（実測 2026-10-09: `Could not
+;; find namespace`）。だから route と view は load-file で読み込む。jp-go-dds は
+;; `.cljk` なので --classpath で普通に解決する。
+;;
+;; Usage:
+;;   K=~/github/com-junkawasaki/orgs/kotoba-lang
+;;   KOTOBA_LANG=$K kbb --backend sci \
+;;     --classpath "$K/jp-go-digital-design-system/src:$K/html/src:$K/css/src" \
+;;     scripts/render-static.kotoba [<dir>]                  (<dir> 既定 ".")
+;;   KOTOBA_LANG 未設定なら ~/github/com-junkawasaki/orgs/kotoba-lang。
+;; Output: <dir>/dist/static/index.html（dist/ は .gitignore 済み）
+;; Exit:   0 書いた · 1 静的版に Worker 専用のものが漏れた（書かない） · 2 描けなかった
+
+(require '["node:fs" :as fs]
+         '["node:os" :as os]
+         '["node:path" :as path]
+         '["node:crypto" :as crypto]
+         '["node:child_process" :as cp]
+         '[nbb.core :as nbb]
+         '[cljs.reader :as reader]
+         '[kotoba.lang.text :as str])
+
+(def root (.resolve path (or (first (remove #(str/starts-with? % "--") *command-line-args*)) ".")))
+
+(def kotoba-lang
+  (or (some-> js/process .-env .-KOTOBA_LANG not-empty)
+      (.join path (.homedir os) "github/com-junkawasaki/orgs/kotoba-lang")))
+
+(def dds-dir (.join path kotoba-lang "jp-go-digital-design-system"))
+
+(defn- undetermined! [m]
+  (println (str "UNDETERMINED\t" m))
+  (println "Refusing to write: the static edition could not be rendered from this tree.")
+  (js/process.exit 2))
+
+(defn- slurp* [p] (try (.readFileSync fs p "utf8") (catch :default _ nil)))
+
+(defn- strip-jsonc
+  "行頭の `//` コメントだけを落とす（verify-docs-claims と同じ規則）。値の中の
+  `https://` は行頭ではないので残る。"
+  [s]
+  (str/replace s #"(?m)^\s*//.*$" ""))
+
+(def wrangler
+  (let [w (slurp* (.join path root "wrangler.jsonc"))]
+    (when (nil? w) (undetermined! (str "no wrangler.jsonc under " root)))
+    (try (js->clj (.parse js/JSON (strip-jsonc w)))
+         (catch :default e (undetermined! (str "wrangler.jsonc did not parse: " (.-message e)))))))
+
+(def env
+  "Worker が受け取る env のうち、vars として宣言されたもの。キーは keyword
+  （worker の env->map と同じ形）。"
+  (into {} (map (fn [[k v]] [(keyword k) v])) (get wrangler "vars")))
+
+(def css
+  (or (slurp* (.join path dds-dir "resources/jp_go_dds/dds.css"))
+      (undetermined! (str "no DADS stylesheet under " dds-dir
+                          " (set KOTOBA_LANG to the kotoba-lang checkout)"))))
+
+(nbb/await (nbb/load-file (.join path root "src/airyield/route.kotoba")))
+(nbb/await (nbb/load-file (.join path root "src/airyield/view.kotoba")))
+(require '[airyield.route :as route] '[airyield.view :as view])
+
+(def mcp-url (route/mcp-router-url env))
+
+(def html
+  (view/render {:css css
+                :static? true
+                :routes route/routes
+                :vars (sort (keys env))
+                :mcp-url mcp-url
+                :built-at nil}))
+
+(def leaked
+  "静的版に出てはならないもの。Worker が動いていて初めて在るものばかり。"
+  (vec (filter #(str/includes? html %)
+               (concat ["/xrpc" "/health" mcp-url] (map name (keys env))))))
+
+(when (seq leaked)
+  (println (str "FAIL\tstatic edition advertises Worker-only things: " (pr-str leaked)))
+  (js/process.exit 1))
+
+(def dds-pin
+  "deps.edn が Worker の bundle に焼く DADS の sha。静的版の CSS はローカルの
+  checkout から読むので、食い違えば Worker 版と CSS が違いうる —— 黙らずに言う。"
+  (some-> (slurp* (.join path root "deps.edn")) reader/read-string
+          (get-in [:deps 'io.github.kotoba-lang/jp-go-digital-design-system :git/sha])))
+
+(def dds-head
+  (try (str/trim (.execSync cp "git rev-parse HEAD" #js {:cwd dds-dir :encoding "utf8"
+                                                       :stdio #js ["ignore" "pipe" "ignore"]}))
+       (catch :default _ nil)))
+
+(let [out-dir (.join path root "dist/static")
+      out (.join path out-dir "index.html")]
+  (.mkdirSync fs out-dir #js {:recursive true})
+  (.writeFileSync fs out html)
+  (println (str "WROTE\t" (.relative path root out) "\t" (.-length (.from js/Buffer html)) " bytes"))
+  (println (str "SHA256\t" (-> (.createHash crypto "sha256") (.update html) (.digest "hex"))))
+  (println (str "DADS\t" (or dds-head "unknown") " (deps.edn pins " (or dds-pin "nothing") ")"))
+  (when (and dds-pin dds-head (not= dds-pin dds-head))
+    (println "NOTE\tthe DADS checkout is not the sha deps.edn pins for the Worker bundle; the CSS may differ from the Worker edition"))
+  (js/process.exit 0))

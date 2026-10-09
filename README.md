@@ -61,13 +61,14 @@ ingress capability が qualify した時に **最初に `.kotoba` へ移る部�
 どの bundle にも入っていなかった。移行後の Worker は `/health` を **持つ**。
 純ローカルな handler で上流も binding も要らない。
 
-## いま在るもの — 25 ファイル
+## いま在るもの — 27 ファイル
 
 | 面 | ファイル |
 |---|---|
 | 判断・描画・edge | `src/airyield/{route.cljc, view.cljc, worker.cljs}` |
-| テスト | `test/airyield/route_test.cljc`（5 tests / 29 assertions） |
-| gate | `scripts/{smoke-worker.cljs, verify-docs-claims.cljs}` |
+| テスト | `test/airyield/route_test.kotoba`（8 tests / 61 assertions） |
+| gate | `scripts/{smoke-worker.kotoba, verify-docs-claims.kotoba}` |
+| 静的版 | `scripts/render-static.kotoba`（下の「Static edition (IPFS)」） |
 | ビルド | `deps.edn` / `shadow-cljs.edn` / `.gitignore` |
 | Worker 設定 | `wrangler.jsonc` |
 | actor 記述子 | `kotodama.jsonld` |
@@ -75,7 +76,7 @@ ingress capability が qualify した時に **最初に `.kotoba` へ移る部�
 | 由来・権利・識別 | `NOTICE` / `README.edn` / `migration.edn` / `MIGRATION-TODO.md` |
 | 文書 | `README.md` / `docs/operator-quickstart.md` / `docs/adr/0001-*.edn` |
 
-**appview の TypeScript は 0 本、正本言語（`.cljs`/`.cljc`）が 4 本。**
+**appview の TypeScript は 0 本、正本言語（`.kotoba`）が 4 本。**
 移行前は 3 対 0 だった（`.ts` 3 本 + `.svelte` 1 本 + `svelte.config.js`）。
 この 2 つの数は検証器の claim なので、TS が戻れば落ちる —— 撤去した 9 パスに
 戻る場合（`removed-by-migration-absent`）も、別名で入る場合
@@ -190,6 +191,29 @@ deploy 先も中継先も、いま存在しない（`etzhayyim.com` 自体は解
 4. **`APP_CAPABILITIES` は 8 メソッドの先頭 3 つだけ**を宣言している。9 つの
    `app-air-*` 兄弟すべてで同じ形なので curation ではなく truncation である
    （移行前から記録されていた所見。ここでは変えていない）。
+
+## Static edition (IPFS)
+
+`GET /` のページは要求ごとに変わらないので、Worker 無しの **静的版** として IPFS に
+置ける（`ipns://k51…` と `k51….ipns` の gateway origin から配る。正本はその IPNS 名で、
+DNS の名前は別名）。Worker は deploy されたまま並走し、Worker 版のページは変わらない。
+
+```bash
+K=~/github/com-junkawasaki/orgs/kotoba-lang
+KOTOBA_LANG=$K kbb --backend sci \
+  --classpath "$K/jp-go-digital-design-system/src:$K/html/src:$K/css/src" \
+  scripts/render-static.kotoba .
+# → dist/static/index.html（dist/ は .gitignore 済み）
+```
+
+静的版は `airyield.view/render` に `:static? true` を渡して描く。Worker が居ないので
+`/health`・`/xrpc/:nsid`・中継先 URL・env のキー名を**名乗らない**（route 表は
+`:route/kind :page` の行だけ。description も中継を名乗らない文に替える）。代わりに、
+IPFS の内容アドレス版であること、XRPC の中継は Worker 版にだけあることを書く。
+入力は Worker と同じものを `wrangler.jsonc` から読んで渡し、それでも出力に漏れて
+いれば exit 1 で書かない。出力は決定的（同じ tree と同じ DADS checkout からは同じ
+sha256）。CSS はローカルの DADS checkout から読むので、`deps.edn` の pin と違う
+commit なら `NOTE` を出す。
 
 ## 検証
 
